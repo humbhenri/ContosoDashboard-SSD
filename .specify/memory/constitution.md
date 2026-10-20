@@ -1,50 +1,112 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: (template, unversioned) → 1.0.0
+- Modified principles: all placeholders replaced (initial ratification)
+  - [PRINCIPLE_1_NAME] → I. Offline-First, Local-Only Execution
+  - [PRINCIPLE_2_NAME] → II. Infrastructure Behind Abstractions
+  - [PRINCIPLE_3_NAME] → III. Security by Default (Defense in Depth)
+  - [PRINCIPLE_4_NAME] → IV. Spec-Driven, Verifiable Changes
+  - [PRINCIPLE_5_NAME] → V. Simplicity and Training Clarity
+- Added sections: Technology & Platform Constraints; Development Workflow & Quality Gates
+- Removed sections: none
+- Templates: plan/spec/tasks templates read this file at runtime; no template edits made
+- Follow-up TODOs: none
+-->
+# ContosoDashboard Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Offline-First, Local-Only Execution
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- The application MUST build, run, and pass its checks on a developer machine with no network
+  access after `dotnet restore`.
+- Features MUST NOT require cloud subscriptions, external APIs, or hosted services to function.
+- Persistent data MUST use the local SQLite database; file content MUST use the local filesystem.
+- Startup MUST create and seed the database automatically so a fresh clone runs with `dotnet run`.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+Rationale: ContosoDashboard is a training application; offline execution maximizes availability
+for students and removes cost and credential barriers.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Infrastructure Behind Abstractions
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- Every infrastructure dependency (file storage, email, external identity, etc.) MUST be accessed
+  through an interface registered via dependency injection (e.g., `IFileStorageService`).
+- Business logic in `Services/` MUST depend only on interfaces, never on concrete infrastructure.
+- Swapping a local implementation for a cloud one (Azure Blob Storage, Azure SQL, Entra ID) MUST
+  require only a new implementation and DI/configuration changes, with no business-logic edits.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Rationale: Preserves the documented migration path to Azure and teaches proper separation of
+concerns.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Security by Default (Defense in Depth) (NON-NEGOTIABLE)
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- Every page or endpoint exposing user data MUST carry `[Authorize]` (with a role policy where
+  applicable); anonymous access is allowed only for login/logout.
+- Every service method that reads or mutates a resource MUST verify the requesting user is
+  authorized for that specific resource (IDOR protection); UI-level checks alone are insufficient.
+- User input MUST be validated server-side; uploaded files MUST be validated for type and size and
+  stored under generated (GUID-based) names, never user-supplied paths.
+- Secrets MUST NOT be committed; security headers and cookie protections MUST NOT be weakened.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Rationale: The application demonstrates secure patterns; regressions would teach the wrong lesson.
+
+### IV. Spec-Driven, Verifiable Changes
+
+- New features MUST follow the Spec Kit flow: specify → clarify (as needed) → plan → tasks →
+  implement, with artifacts stored under `specs/`.
+- Each user story in a spec MUST have acceptance criteria that can be independently verified.
+- New or changed service-layer logic MUST be covered by automated tests that run offline
+  (e.g., xUnit with SQLite in-memory); authorization rules MUST have tests for both allowed and
+  denied cases.
+- `dotnet build` MUST succeed with zero errors and no new warnings before a change is complete.
+
+Rationale: Specifications and tests make behavior explicit and reviewable, which is the core skill
+this project teaches.
+
+### V. Simplicity and Training Clarity
+
+- Prefer the simplest design that satisfies the spec; avoid speculative abstractions beyond those
+  required by Principle II (YAGNI).
+- Follow the existing layering: `Models/` (entities), `Data/` (EF Core context), `Services/`
+  (business logic + authorization), `Pages/` and `Shared/` (Blazor UI).
+- Code MUST be readable by learners: clear names, small methods, and comments only where intent is
+  not obvious.
+- Known limitations and training-only shortcuts (e.g., mock authentication) MUST be documented in
+  the README rather than hidden.
+
+Rationale: The codebase is a teaching artifact; clarity outweighs cleverness.
+
+## Technology & Platform Constraints
+
+- Runtime: .NET 10 (`net10.0`), ASP.NET Core with Blazor Server and Razor Pages for auth flows.
+- Data: Entity Framework Core with SQLite (`Data Source=ContosoDashboard.db`); schema changes MUST
+  keep `EnsureCreated()`-based startup working or introduce migrations explicitly in the plan.
+- UI: Bootstrap 5.3 and Bootstrap Icons; no additional front-end frameworks without justification
+  in the plan.
+- Authentication: cookie-based mock authentication with claims and roles (Employee, TeamLead,
+  ProjectManager, Administrator); production identity is out of scope.
+- NuGet dependencies MUST be free of known high/critical vulnerabilities at merge time.
+- Scope: training use only; the codebase is not intended for production deployment.
+
+## Development Workflow & Quality Gates
+
+- Plans MUST include a Constitution Check confirming compliance with Principles I–V; any deviation
+  MUST be recorded with justification in the plan's complexity tracking.
+- Before implementation, `/speckit.analyze` SHOULD be run to detect inconsistencies across spec,
+  plan, and tasks; CRITICAL findings MUST be resolved first.
+- A change is complete only when: build passes, tests pass, the app starts and seeds the database
+  locally, and the README is updated for any user-visible or setup change.
+- Reviews MUST verify authorization checks at the service layer for every new data access path.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution supersedes other project practices; conflicting guidance MUST be updated or
+  removed.
+- Amendments are made via `/speckit.constitution`, recorded with a Sync Impact Report, and reviewed
+  before merge.
+- Versioning follows semantic versioning: MAJOR for removed or redefined principles, MINOR for new
+  principles/sections or materially expanded guidance, PATCH for clarifications.
+- Compliance is checked during planning (Constitution Check) and code review; unjustified
+  violations block merge.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20
