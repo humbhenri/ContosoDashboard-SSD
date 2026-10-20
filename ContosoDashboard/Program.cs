@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using ContosoDashboard.Data;
 using ContosoDashboard.Services;
+using ContosoDashboard.Services.Scanning;
+using ContosoDashboard.Services.Storage;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 
@@ -43,6 +46,16 @@ builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+// Document management: swap these registrations to move storage/scanning to cloud services
+builder.Services.AddSingleton<IFileStorageService>(sp =>
+{
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var rootPath = builder.Configuration["FileStorage:RootPath"] ?? "AppData/uploads";
+    return new LocalFileStorageService(Path.Combine(env.ContentRootPath, rootPath));
+});
+builder.Services.AddSingleton<IFileScanService, ContentTypeScanService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
 
 // Add HttpContextAccessor for accessing user claims
 builder.Services.AddHttpContextAccessor();
@@ -106,6 +119,21 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapBlazorHub();
+
+// Files live outside wwwroot; this endpoint is the only way to retrieve them
+app.MapGet("/documents/{documentId:int}/download", async (int documentId, ClaimsPrincipal user, IDocumentService documents) =>
+{
+    if (!int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+    {
+        return Results.NotFound();
+    }
+
+    var file = await documents.OpenForDownloadAsync(documentId, userId, previewOnly: false);
+    return file == null
+        ? Results.NotFound()
+        : Results.File(file.Content, file.ContentType, file.FileName);
+}).RequireAuthorization();
+
 app.MapFallbackToPage("/_Host");
 
 app.Run();

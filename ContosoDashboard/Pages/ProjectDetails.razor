@@ -5,8 +5,10 @@
 @using System.Security.Claims
 @attribute [Authorize]
 @inject IProjectService ProjectService
+@inject IDocumentService DocumentService
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
 
 <PageTitle>Project Details - ContosoDashboard</PageTitle>
 
@@ -151,6 +153,27 @@
                         }
                     </div>
                 </div>
+
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Project Documents</h5>
+                        <button class="btn btn-sm btn-primary" @onclick="() => showUpload = true">
+                            <i class="bi bi-upload"></i> Upload
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (documentMessage != null)
+                        {
+                            <div class="alert @(documentMessageIsError ? "alert-danger" : "alert-success") alert-dismissible" role="alert">
+                                @documentMessage
+                                <button type="button" class="btn-close" aria-label="Close" @onclick="() => documentMessage = null"></button>
+                            </div>
+                        }
+                        <DocumentTable Items="projectDocuments" ShowUploader="true"
+                                       EmptyMessage="No documents have been added to this project."
+                                       OnEdit="item => editDocumentId = item.DocumentId" OnDelete="DeleteDocumentAsync" />
+                    </div>
+                </div>
             </div>
 
             <div class="col-md-4">
@@ -232,12 +255,40 @@
     }
 </div>
 
+<DocumentUploadModal Show="showUpload" FixedProjectId="ProjectId"
+                     OnClose="() => showUpload = false" OnUploaded="LoadDocumentsAsync" />
+<DocumentEditModal Show="editDocumentId.HasValue" DocumentId="editDocumentId"
+                   OnClose="() => editDocumentId = null" OnSaved="LoadDocumentsAsync" />
+
 @code {
     [Parameter]
     public int ProjectId { get; set; }
 
     private Project? project;
     private int currentUserId = 0;
+    private List<DocumentListItem> projectDocuments = new();
+    private bool showUpload;
+    private int? editDocumentId;
+    private string? documentMessage;
+    private bool documentMessageIsError;
+
+    private async Task LoadDocumentsAsync()
+    {
+        projectDocuments = await DocumentService.GetProjectDocumentsAsync(ProjectId, currentUserId);
+    }
+
+    private async Task DeleteDocumentAsync(DocumentListItem item)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"Permanently delete \"{item.Title}\"? This cannot be undone."))
+        {
+            return;
+        }
+
+        var result = await DocumentService.DeleteAsync(item.DocumentId, currentUserId);
+        documentMessageIsError = !result.Succeeded;
+        documentMessage = result.Succeeded ? $"\"{item.Title}\" was deleted." : result.ErrorMessage;
+        await LoadDocumentsAsync();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -258,7 +309,10 @@
         if (project == null)
         {
             NavigationManager.NavigateTo("/projects");
+            return;
         }
+
+        await LoadDocumentsAsync();
     }
 
     private string GetStatusColor(ProjectStatus status)
