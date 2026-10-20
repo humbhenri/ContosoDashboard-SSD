@@ -30,9 +30,15 @@ independently.
 
 **Purpose**: Test project, configuration, and repository hygiene
 
+<<<<<<< HEAD
 - [ ] T001 Create xUnit test project `ContosoDashboard.Tests/ContosoDashboard.Tests.csproj` targeting `net10.0` with packages `xunit`, `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`, `Microsoft.Data.Sqlite`, and a `ProjectReference` to `ContosoDashboard/ContosoDashboard.csproj`
 - [ ] T002 [P] Add `"FileStorage": { "RootPath": "AppData/uploads" }` to `ContosoDashboard/appsettings.json`
 - [ ] T003 [P] Add `ContosoDashboard/AppData/` to `.gitignore`
+=======
+- [X] T001 Create xUnit test project `ContosoDashboard.Tests/ContosoDashboard.Tests.csproj` targeting `net10.0` with packages `xunit`, `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`, `Microsoft.Data.Sqlite`, and a `ProjectReference` to `ContosoDashboard/ContosoDashboard.csproj`
+- [X] T002 [P] Add `"FileStorage": { "RootPath": "AppData/uploads" }` to `ContosoDashboard/appsettings.json`
+- [X] T003 [P] Add `ContosoDashboard/AppData/` to `.gitignore`
+>>>>>>> 9353493deff9f0137aac21931da49bd0eda5f14c
 
 ---
 
@@ -43,6 +49,7 @@ service skeleton with the shared access filter, and test helpers
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
+<<<<<<< HEAD
 - [ ] T004 [P] Create `DocumentCategories` static class in `ContosoDashboard/Models/DocumentCategories.cs` with `All` = Project Documents, Team Resources, Personal Files, Reports, Presentations, Other; `AllowedExtensions` map (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .txt, .jpg, .jpeg, .png → MIME per data-model.md); `PreviewableTypes` = application/pdf, image/jpeg, image/png; `MaxFileSizeBytes = 26_214_400`
 - [ ] T005 [P] Create `Document` entity in `ContosoDashboard/Models/Document.cs`: `DocumentId` int PK; `Title` required MaxLength(255); `Description` MaxLength(2000) nullable; `Category` required MaxLength(50); `ProjectId` int? FK; `UploadedByUserId` int required FK; `OriginalFileName` required MaxLength(255); `FilePath` required MaxLength(500); `FileType` required MaxLength(255); `FileSizeBytes` long; `UploadedDate`/`UpdatedDate` DateTime UTC; navigations to User, Project, Tags, Shares, TaskDocuments
 - [ ] T006 [P] Create `DocumentTag` entity in `ContosoDashboard/Models/DocumentTag.cs`: `DocumentTagId` PK; `DocumentId` FK; `Tag` required MaxLength(50) (stored trimmed, lower-cased)
@@ -61,6 +68,26 @@ service skeleton with the shared access filter, and test helpers
 - [ ] T019 [P] Write `ContosoDashboard.Tests/LocalFileStorageServiceTests.cs`: upload/download round-trip, delete missing is no-op, keys with `..` or absolute paths are rejected (depends on T018)
 - [ ] T020 [P] Write `ContosoDashboard.Tests/ContentTypeScanServiceTests.cs`: each allowed type with valid signature passes; renamed executable (`MZ` header as `.pdf`) rejected; `.exe` and `.docm` rejected; text with NUL rejected (depends on T015, T001)
 - [ ] T021 Write `ContosoDashboard.Tests/DocumentAuthorizationTests.cs` with the view-access matrix for `AccessibleDocuments` via public query methods as they are added (start with uploader-only and Administrator cases; extend in later stories) (depends on T016, T018)
+=======
+- [X] T004 [P] Create `DocumentCategories` static class in `ContosoDashboard/Models/DocumentCategories.cs` with `All` = Project Documents, Team Resources, Personal Files, Reports, Presentations, Other; `AllowedExtensions` map (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .txt, .jpg, .jpeg, .png → MIME per data-model.md); `PreviewableTypes` = application/pdf, image/jpeg, image/png; `MaxFileSizeBytes = 26_214_400`
+- [X] T005 [P] Create `Document` entity in `ContosoDashboard/Models/Document.cs`: `DocumentId` int PK; `Title` required MaxLength(255); `Description` MaxLength(2000) nullable; `Category` required MaxLength(50); `ProjectId` int? FK; `UploadedByUserId` int required FK; `OriginalFileName` required MaxLength(255); `FilePath` required MaxLength(500); `FileType` required MaxLength(255); `FileSizeBytes` long; `UploadedDate`/`UpdatedDate` DateTime UTC; navigations to User, Project, Tags, Shares, TaskDocuments
+- [X] T006 [P] Create `DocumentTag` entity in `ContosoDashboard/Models/DocumentTag.cs`: `DocumentTagId` PK; `DocumentId` FK; `Tag` required MaxLength(50) (stored trimmed, lower-cased)
+- [X] T007 [P] Create `DocumentShare` entity in `ContosoDashboard/Models/DocumentShare.cs`: `DocumentShareId` PK; `DocumentId` FK; `SharedWithUserId` int? FK; `SharedWithProjectId` int? FK (exactly one set); `SharedByUserId` int FK; `SharedDate` DateTime UTC
+- [X] T008 [P] Create `TaskDocument` entity in `ContosoDashboard/Models/TaskDocument.cs`: composite key (`TaskId`, `DocumentId`); `AttachedByUserId` FK; `AttachedDate` DateTime UTC
+- [X] T009 [P] Create `DocumentActivity` entity in `ContosoDashboard/Models/DocumentActivity.cs`: `DocumentActivityId` PK; `DocumentId` int (no FK); `DocumentTitle` MaxLength(255); `FileType` MaxLength(255); `UserId` FK; `Action` MaxLength(30) (Upload, Download, EditMetadata, ReplaceFile, Delete, Share, RevokeShare); `Timestamp` DateTime UTC
+- [X] T010 [P] Append `DocumentShared` and `DocumentAdded` to the end of `NotificationType` in `ContosoDashboard/Models/Notification.cs` (existing values unchanged)
+- [X] T011 Register `DbSet`s for the five new entities in `ContosoDashboard/Data/ApplicationDbContext.cs` and configure relationships and indexes per data-model.md: Document→User/Project Restrict; Tags/Shares/TaskDocuments Cascade; unique `Document.FilePath`; indexes on `Document(UploadedByUserId)`, `(ProjectId)`, `(UploadedDate)`; unique (`DocumentId`,`Tag`); indexes `DocumentShare(SharedWithUserId)`, `(SharedWithProjectId)` with unique per-document pairs; `TaskDocument` composite key; `DocumentActivity` indexes (`Action`,`Timestamp`), `UserId`, `DocumentId` (depends on T005–T009)
+- [X] T012 [P] Create `IFileStorageService` in `ContosoDashboard/Services/Storage/IFileStorageService.cs` per contracts/service-interfaces.md (`UploadAsync`, `DeleteAsync`, `DownloadAsync`, `GetUrlAsync`)
+- [X] T013 Implement `LocalFileStorageService` in `ContosoDashboard/Services/Storage/LocalFileStorageService.cs`: root from `FileStorage:RootPath` relative to content root; create directories; resolve full path and reject keys escaping the root; `DeleteAsync` no-op if missing; `GetUrlAsync` returns `/documents/{id}/download` style route supplied by caller key mapping (depends on T012)
+- [X] T014 [P] Create `IFileScanService` and `FileScanResult` record in `ContosoDashboard/Services/Scanning/IFileScanService.cs`
+- [X] T015 Implement `ContentTypeScanService` in `ContosoDashboard/Services/Scanning/ContentTypeScanService.cs`: extension allow-list from `DocumentCategories.AllowedExtensions`; signature checks (PDF `%PDF`, PNG, JPEG `FF D8 FF`, OOXML ZIP `50 4B 03 04`, OLE `D0 CF 11 E0 A1 B1 1A E1`, `.txt` no NUL in first 8 KB); return MIME from extension; restore stream position (depends on T004, T014)
+- [X] T016 Create `IDocumentService` interface and DTOs (`DocumentUploadRequest`, `DocumentQuery`, `DocumentListItem`, `DocumentDetails`, `DocumentFile`, `UploadResult`, `OperationResult`, `DocumentShareInfo`) in `ContosoDashboard/Services/DocumentService.cs` per contracts/service-interfaces.md, plus `DocumentService` class with constructor (context, storage, scan, notification service, logger) and private helpers: `AccessibleDocuments(userId)` IQueryable access filter (Administrator; uploader; project member or manager; direct share; team share via current project membership; project TeamLead over uploader's projects), `CanManage`/`CanDelete` checks, `ToListItem` projection with `CanEdit`/`CanDelete`/`CanShare`/`IsPreviewable`, and `LogActivityAsync` (depends on T011, T012, T014)
+- [X] T017 Register `IFileStorageService`→`LocalFileStorageService` (singleton), `IFileScanService`→`ContentTypeScanService` (singleton), and `IDocumentService`→`DocumentService` (scoped) in `ContosoDashboard/Program.cs` (depends on T013, T015, T016)
+- [X] T018 [P] Create test helper `ContosoDashboard.Tests/TestDb.cs`: open SQLite `DataSource=:memory:` connection, build `ApplicationDbContext`, `EnsureCreated()`, seed users for each role plus projects with members (including a `ProjectMember.Role = "TeamLead"`), and a temp-directory `LocalFileStorageService` factory with cleanup (depends on T001, T011, T013)
+- [X] T019 [P] Write `ContosoDashboard.Tests/LocalFileStorageServiceTests.cs`: upload/download round-trip, delete missing is no-op, keys with `..` or absolute paths are rejected (depends on T018)
+- [X] T020 [P] Write `ContosoDashboard.Tests/ContentTypeScanServiceTests.cs`: each allowed type with valid signature passes; renamed executable (`MZ` header as `.pdf`) rejected; `.exe` and `.docm` rejected; text with NUL rejected (depends on T015, T001)
+- [X] T021 Write `ContosoDashboard.Tests/DocumentAuthorizationTests.cs` with the view-access matrix for `AccessibleDocuments` via public query methods as they are added (start with uploader-only and Administrator cases; extend in later stories) (depends on T016, T018)
+>>>>>>> 9353493deff9f0137aac21931da49bd0eda5f14c
 
 **Checkpoint**: Schema, abstractions, access filter, and test harness ready; `dotnet build` and `dotnet test` pass
 
@@ -76,6 +103,7 @@ service skeleton with the shared access filter, and test helpers
 
 > Write these tests first and confirm they fail before implementation
 
+<<<<<<< HEAD
 - [ ] T022 [P] [US1] Write `ContosoDashboard.Tests/DocumentUploadTests.cs`: valid upload stores file under `{userId}/personal/{guid}.{ext}` and row with metadata; title defaults rule enforced (empty title rejected); missing category rejected; category not in list rejected; >25 MB rejected; scan rejection stores nothing; DB failure after file save deletes the file; storage failure creates no row; uploading to a project the user is not a member of is rejected; `Upload` activity logged
 - [ ] T023 [P] [US1] Add tests to `ContosoDashboard.Tests/DocumentAuthorizationTests.cs`: `GetMyDocumentsAsync` returns only own uploads with sort (title, date, category, size) and filters (category, project, date range); `OpenForDownloadAsync` returns file for uploader/Administrator and null for an unrelated user; download logs `Download` activity
 
@@ -89,6 +117,21 @@ service skeleton with the shared access filter, and test helpers
 - [ ] T029 [US1] Create `ContosoDashboard/Shared/Documents/DocumentUploadModal.razor`: `InputFile multiple` with `@key` reset; shared fields (category, project from user's projects, tags, description) prefill each selected file row; per-file title defaulting to file name without extension; capture name/size/type before reading; chunked copy of `OpenReadStream(25 MB)` into `MemoryStream` with per-file progress bar; call `UploadAsync` per file; per-file success/error messages; parameters `FixedProjectId?`, `TaskId?`, `OnUploaded` (depends on T024)
 - [ ] T030 [US1] Create `ContosoDashboard/Pages/Documents.razor` at `@page "/documents"` with `[Authorize]`: My Documents tab using `DocumentTable`, category/project/date-range filters, sort state, Upload button opening `DocumentUploadModal` (≤3 clicks to upload) (depends on T025, T028, T029)
 - [ ] T031 [US1] Add "Documents" link to `ContosoDashboard/Shared/NavMenu.razor`
+=======
+- [X] T022 [P] [US1] Write `ContosoDashboard.Tests/DocumentUploadTests.cs`: valid upload stores file under `{userId}/personal/{guid}.{ext}` and row with metadata; title defaults rule enforced (empty title rejected); missing category rejected; category not in list rejected; >25 MB rejected; scan rejection stores nothing; DB failure after file save deletes the file; storage failure creates no row; uploading to a project the user is not a member of is rejected; `Upload` activity logged
+- [X] T023 [P] [US1] Add tests to `ContosoDashboard.Tests/DocumentAuthorizationTests.cs`: `GetMyDocumentsAsync` returns only own uploads with sort (title, date, category, size) and filters (category, project, date range); `OpenForDownloadAsync` returns file for uploader/Administrator and null for an unrelated user; download logs `Download` activity
+
+### Implementation for User Story 1
+
+- [X] T024 [US1] Implement `UploadAsync` in `ContosoDashboard/Services/DocumentService.cs`: validate title (trimmed, ≤255), category ∈ `DocumentCategories.All`, size 1..25 MB; scan via `IFileScanService`; authorize `ProjectId` (member or manager); generate key `{userId}/{projectId|personal}/{Guid}.{ext}`; save file; insert Document + normalized tags in a transaction; on DB failure delete file; log `Upload` (depends on T016)
+- [X] T025 [US1] Implement `GetMyDocumentsAsync` (server-side filter/sort per `DocumentQuery`) and `GetByIdAsync` in `ContosoDashboard/Services/DocumentService.cs` (depends on T024)
+- [X] T026 [US1] Implement `OpenForDownloadAsync` in `ContosoDashboard/Services/DocumentService.cs`: access check via `AccessibleDocuments`, return `DocumentFile` stream + content type + original name, `previewOnly` returns null for non-previewable types, log `Download` (depends on T016)
+- [X] T027 [US1] Map `GET /documents/{documentId:int}/download` in `ContosoDashboard/Program.cs` with `.RequireAuthorization()`; read user id from `NameIdentifier`; return `Results.File(..., fileDownloadName: OriginalFileName)` or `Results.NotFound()` per contracts/http-endpoints.md (depends on T026, T017)
+- [X] T028 [P] [US1] Create `ContosoDashboard/Shared/Documents/DocumentTable.razor`: columns title, category, upload date, size (human-readable), project; sortable headers raising `OnSort`; Download link to `/documents/{id}/download`; action buttons rendered from `CanEdit`/`CanDelete`/`CanShare`/`IsPreviewable` flags via callbacks
+- [X] T029 [US1] Create `ContosoDashboard/Shared/Documents/DocumentUploadModal.razor`: `InputFile multiple` with `@key` reset; shared fields (category, project from user's projects, tags, description) prefill each selected file row; per-file title defaulting to file name without extension; capture name/size/type before reading; chunked copy of `OpenReadStream(25 MB)` into `MemoryStream` with per-file progress bar; call `UploadAsync` per file; per-file success/error messages; parameters `FixedProjectId?`, `TaskId?`, `OnUploaded` (depends on T024)
+- [X] T030 [US1] Create `ContosoDashboard/Pages/Documents.razor` at `@page "/documents"` with `[Authorize]`: My Documents tab using `DocumentTable`, category/project/date-range filters, sort state, Upload button opening `DocumentUploadModal` (≤3 clicks to upload) (depends on T025, T028, T029)
+- [X] T031 [US1] Add "Documents" link to `ContosoDashboard/Shared/NavMenu.razor`
+>>>>>>> 9353493deff9f0137aac21931da49bd0eda5f14c
 
 **Checkpoint**: US1 fully functional and testable on its own (MVP)
 
@@ -102,6 +145,7 @@ service skeleton with the shared access filter, and test helpers
 
 ### Tests for User Story 2 ⚠️
 
+<<<<<<< HEAD
 - [ ] T032 [P] [US2] Add tests to `ContosoDashboard.Tests/DocumentAuthorizationTests.cs`: `GetProjectDocumentsAsync` returns documents to project members and the project manager, empty/null for non-members; `OpenForDownloadAsync` allowed for members, denied for non-members; access lost after member removal
 - [ ] T033 [P] [US2] Add tests to `ContosoDashboard.Tests/DocumentUploadTests.cs`: project upload creates `DocumentAdded` notifications for every other member and the manager, none for the uploader
 
@@ -110,6 +154,16 @@ service skeleton with the shared access filter, and test helpers
 - [ ] T034 [US2] Implement `GetProjectDocumentsAsync` in `ContosoDashboard/Services/DocumentService.cs` (requires requester to be member or manager; Administrator allowed) (depends on T025)
 - [ ] T035 [US2] Extend `UploadAsync` in `ContosoDashboard/Services/DocumentService.cs` to send `DocumentAdded` notifications via `INotificationService` to project members and manager excluding the uploader (depends on T024)
 - [ ] T036 [US2] Add a Documents section to `ContosoDashboard/Pages/ProjectDetails.razor`: list via `DocumentTable`, Upload button opening `DocumentUploadModal` with `FixedProjectId` (depends on T034, T028, T029)
+=======
+- [X] T032 [P] [US2] Add tests to `ContosoDashboard.Tests/DocumentAuthorizationTests.cs`: `GetProjectDocumentsAsync` returns documents to project members and the project manager, empty/null for non-members; `OpenForDownloadAsync` allowed for members, denied for non-members; access lost after member removal
+- [X] T033 [P] [US2] Add tests to `ContosoDashboard.Tests/DocumentUploadTests.cs`: project upload creates `DocumentAdded` notifications for every other member and the manager, none for the uploader
+
+### Implementation for User Story 2
+
+- [X] T034 [US2] Implement `GetProjectDocumentsAsync` in `ContosoDashboard/Services/DocumentService.cs` (requires requester to be member or manager; Administrator allowed) (depends on T025)
+- [X] T035 [US2] Extend `UploadAsync` in `ContosoDashboard/Services/DocumentService.cs` to send `DocumentAdded` notifications via `INotificationService` to project members and manager excluding the uploader (depends on T024)
+- [X] T036 [US2] Add a Documents section to `ContosoDashboard/Pages/ProjectDetails.razor`: list via `DocumentTable`, Upload button opening `DocumentUploadModal` with `FixedProjectId` (depends on T034, T028, T029)
+>>>>>>> 9353493deff9f0137aac21931da49bd0eda5f14c
 
 **Checkpoint**: US1 and US2 work independently
 
@@ -123,12 +177,21 @@ service skeleton with the shared access filter, and test helpers
 
 ### Tests for User Story 3 ⚠️
 
+<<<<<<< HEAD
 - [ ] T037 [P] [US3] Write `ContosoDashboard.Tests/DocumentSearchTests.cs`: matches on each field (title, description, tag, uploader display name, project name); inaccessible matches excluded; blank term returns empty list
 
 ### Implementation for User Story 3
 
 - [ ] T038 [US3] Implement `SearchAsync` in `ContosoDashboard/Services/DocumentService.cs` using `EF.Functions.Like` over title, description, tags, uploader `DisplayName`, project name, applied on top of `AccessibleDocuments` (depends on T016)
 - [ ] T039 [US3] Add a Search tab to `ContosoDashboard/Pages/Documents.razor` with input, results via `DocumentTable`, and "No documents found" empty state (depends on T038, T030)
+=======
+- [X] T037 [P] [US3] Write `ContosoDashboard.Tests/DocumentSearchTests.cs`: matches on each field (title, description, tag, uploader display name, project name); inaccessible matches excluded; blank term returns empty list
+
+### Implementation for User Story 3
+
+- [X] T038 [US3] Implement `SearchAsync` in `ContosoDashboard/Services/DocumentService.cs` using `EF.Functions.Like` over title, description, tags, uploader `DisplayName`, project name, applied on top of `AccessibleDocuments` (depends on T016)
+- [X] T039 [US3] Add a Search tab to `ContosoDashboard/Pages/Documents.razor` with input, results via `DocumentTable`, and "No documents found" empty state (depends on T038, T030)
+>>>>>>> 9353493deff9f0137aac21931da49bd0eda5f14c
 
 **Checkpoint**: US1–US3 work independently
 
@@ -142,6 +205,7 @@ service skeleton with the shared access filter, and test helpers
 
 ### Tests for User Story 4 ⚠️
 
+<<<<<<< HEAD
 - [ ] T040 [P] [US4] Write `ContosoDashboard.Tests/DocumentManagementTests.cs`: allow/deny matrix — edit metadata (uploader, project TeamLead, Administrator allowed; others denied); replace file (uploader only; old file removed, size/type/UpdatedDate updated); delete (uploader, project manager, project TeamLead, Administrator allowed; others denied); delete removes file, tags, shares, task attachments but keeps activity rows; activities `EditMetadata`, `ReplaceFile`, `Delete` logged
 
 ### Implementation for User Story 4
@@ -151,6 +215,17 @@ service skeleton with the shared access filter, and test helpers
 - [ ] T043 [US4] Implement `DeleteAsync` in `ContosoDashboard/Services/DocumentService.cs` (permission check; remove row in transaction with cascades; delete file after commit; log with title snapshot) (depends on T016)
 - [ ] T044 [P] [US4] Create `ContosoDashboard/Shared/Documents/DocumentEditModal.razor`: edit title, description, category, tags; Replace file section (shown only when user is uploader) using the MemoryStream pattern
 - [ ] T045 [US4] Wire Edit and Delete actions (with confirmation dialog) into `ContosoDashboard/Pages/Documents.razor` and `ContosoDashboard/Pages/ProjectDetails.razor`, refreshing lists after success (depends on T041–T044, T036)
+=======
+- [X] T040 [P] [US4] Write `ContosoDashboard.Tests/DocumentManagementTests.cs`: allow/deny matrix — edit metadata (uploader, project TeamLead, Administrator allowed; others denied); replace file (uploader only; old file removed, size/type/UpdatedDate updated); delete (uploader, project manager, project TeamLead, Administrator allowed; others denied); delete removes file, tags, shares, task attachments but keeps activity rows; activities `EditMetadata`, `ReplaceFile`, `Delete` logged
+
+### Implementation for User Story 4
+
+- [X] T041 [US4] Implement `UpdateMetadataAsync` in `ContosoDashboard/Services/DocumentService.cs` (validate title/category, replace tag set, set `UpdatedDate`, log) (depends on T016)
+- [X] T042 [US4] Implement `ReplaceFileAsync` in `ContosoDashboard/Services/DocumentService.cs` (uploader only; scan + size check; save new key; update row; delete old file after commit; log) (depends on T024)
+- [X] T043 [US4] Implement `DeleteAsync` in `ContosoDashboard/Services/DocumentService.cs` (permission check; remove row in transaction with cascades; delete file after commit; log with title snapshot) (depends on T016)
+- [X] T044 [P] [US4] Create `ContosoDashboard/Shared/Documents/DocumentEditModal.razor`: edit title, description, category, tags; Replace file section (shown only when user is uploader) using the MemoryStream pattern
+- [X] T045 [US4] Wire Edit and Delete actions (with confirmation dialog) into `ContosoDashboard/Pages/Documents.razor` and `ContosoDashboard/Pages/ProjectDetails.razor`, refreshing lists after success (depends on T041–T044, T036)
+>>>>>>> 9353493deff9f0137aac21931da49bd0eda5f14c
 
 **Checkpoint**: US1–US4 work independently
 
@@ -305,6 +380,7 @@ graph LR
 
 - Delete `ContosoDashboard/ContosoDashboard.db` once after Phase 2 (schema change under `EnsureCreated()`)
 - Commit after each task or logical group
+<<<<<<< HEAD
 
 ---
 
@@ -314,3 +390,5 @@ graph LR
 - [ ] T068 Include project managers in Team Lead scope in `ContosoDashboard/Services/DocumentService.cs` (`GetUserContextAsync` led-user set must add `Project.ProjectManagerId` of projects where the user holds the TeamLead role), with allow/deny tests in `ContosoDashboard.Tests/DocumentManagementTests.cs` per FR-023 / research R6 (partial)
 - [ ] T069 Reconcile `LocalFileStorageService.GetUrlAsync` (currently throws `NotSupportedException`) with contracts/service-interfaces.md ("local: app download route"): make the method's behavior and the contract agree and cover it in `ContosoDashboard.Tests/LocalFileStorageServiceTests.cs` per contracts/service-interfaces.md (contradicts)
 - [ ] T070 Review the 20-files-per-upload cap in `ContosoDashboard/Shared/Documents/DocumentUploadModal.razor` (not in spec/plan): remove it or justify it and record it in the spec's assumptions per FR-001 (unrequested)
+=======
+>>>>>>> 9353493deff9f0137aac21931da49bd0eda5f14c
