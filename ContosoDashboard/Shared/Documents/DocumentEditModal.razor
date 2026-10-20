@@ -1,0 +1,225 @@
+@using System.Security.Claims
+@using ContosoDashboard.Models
+@using ContosoDashboard.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject IDocumentService DocumentService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@if (Show)
+{
+    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="editModalTitle"
+         style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalTitle">Edit Document</h5>
+                    <button type="button" class="btn-close" aria-label="Close" disabled="@isBusy" @onclick="CloseAsync"></button>
+                </div>
+                <div class="modal-body">
+                    @if (document == null)
+                    {
+                        <p class="text-muted">@(loadError ?? "Loading…")</p>
+                    }
+                    else
+                    {
+                        <fieldset disabled="@isBusy">
+                            <div class="mb-3">
+                                <label class="form-label" for="editTitle">Title <span class="text-danger">*</span></label>
+                                <input id="editTitle" class="form-control" maxlength="255" @bind="title" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="editCategory">Category <span class="text-danger">*</span></label>
+                                <select id="editCategory" class="form-select" @bind="category">
+                                    @foreach (var option in DocumentCategories.All)
+                                    {
+                                        <option value="@option">@option</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="editTags">Tags</label>
+                                <input id="editTags" class="form-control" placeholder="comma, separated" maxlength="500" @bind="tags" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="editDescription">Description</label>
+                                <textarea id="editDescription" class="form-control" rows="3" maxlength="2000" @bind="description"></textarea>
+                            </div>
+                        </fieldset>
+
+                        @if (document.CanReplace)
+                        {
+                            <hr />
+                            <h6>Replace file</h6>
+                            <p class="small text-muted mb-2">Current file: @document.OriginalFileName (@DocumentTable.FormatSize(document.FileSizeBytes)). The previous file is discarded.</p>
+                            <div class="input-group">
+                                <InputFile @key="inputKey" class="form-control" OnChange="OnReplacementSelected" disabled="@isBusy"
+                                           aria-label="Replacement file" />
+                                <button class="btn btn-outline-primary" disabled="@(isBusy || replacement == null)" @onclick="ReplaceAsync">Replace</button>
+                            </div>
+                        }
+
+                        @if (message != null)
+                        {
+                            <div class="alert @(messageIsError ? "alert-danger" : "alert-success") mt-3 mb-0" role="alert">@message</div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" disabled="@isBusy" @onclick="CloseAsync">Close</button>
+                    <button type="button" class="btn btn-primary" disabled="@(isBusy || document == null)" @onclick="SaveAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool Show { get; set; }
+
+    [Parameter]
+    public int? DocumentId { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback OnSaved { get; set; }
+
+    private DocumentDetails? document;
+    private string title = string.Empty;
+    private string category = string.Empty;
+    private string tags = string.Empty;
+    private string? description;
+    private IBrowserFile? replacement;
+    private Guid inputKey = Guid.NewGuid();
+    private bool isBusy;
+    private string? message;
+    private bool messageIsError;
+    private string? loadError;
+    private int currentUserId;
+    private int? loadedDocumentId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Show)
+        {
+            loadedDocumentId = null;
+            return;
+        }
+
+        if (DocumentId.HasValue && DocumentId != loadedDocumentId)
+        {
+            loadedDocumentId = DocumentId;
+            message = null;
+            loadError = null;
+            replacement = null;
+            currentUserId = await GetCurrentUserIdAsync();
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        document = await DocumentService.GetByIdAsync(DocumentId!.Value, currentUserId);
+        if (document == null || !document.CanEdit)
+        {
+            document = null;
+            loadError = ContosoDashboard.Services.DocumentService.NotFoundMessage;
+            return;
+        }
+
+        title = document.Title;
+        category = document.Category;
+        tags = string.Join(", ", document.Tags);
+        description = document.Description;
+    }
+
+    private async Task SaveAsync()
+    {
+        isBusy = true;
+        var result = await DocumentService.UpdateMetadataAsync(DocumentId!.Value, new DocumentMetadataUpdate
+        {
+            Title = title,
+            Category = category,
+            Description = description,
+            Tags = DocumentUploadModal.ParseTags(tags)
+        }, currentUserId);
+        isBusy = false;
+
+        SetMessage(result, "Changes saved.");
+        if (result.Succeeded)
+        {
+            await OnSaved.InvokeAsync();
+        }
+    }
+
+    private void OnReplacementSelected(InputFileChangeEventArgs e)
+    {
+        replacement = e.File;
+        message = null;
+        if (replacement.Size > DocumentCategories.MaxFileSizeBytes)
+        {
+            replacement = null;
+            message = ContosoDashboard.Services.DocumentService.SizeLimitMessage;
+            messageIsError = true;
+        }
+    }
+
+    private async Task ReplaceAsync()
+    {
+        if (replacement == null)
+        {
+            return;
+        }
+
+        isBusy = true;
+        var fileName = replacement.Name;
+        OperationResult result;
+        try
+        {
+            using var memory = new MemoryStream();
+            await using (var stream = replacement.OpenReadStream(DocumentCategories.MaxFileSizeBytes))
+            {
+                await stream.CopyToAsync(memory);
+            }
+            replacement = null;
+            memory.Position = 0;
+            result = await DocumentService.ReplaceFileAsync(DocumentId!.Value, fileName, memory, currentUserId);
+        }
+        catch (IOException)
+        {
+            result = OperationResult.Failure("The file could not be read. Please try again.");
+        }
+        isBusy = false;
+        inputKey = Guid.NewGuid();
+
+        SetMessage(result, "File replaced.");
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+            await OnSaved.InvokeAsync();
+        }
+    }
+
+    private void SetMessage(OperationResult result, string successText)
+    {
+        messageIsError = !result.Succeeded;
+        message = result.Succeeded ? successText : result.ErrorMessage;
+    }
+
+    private async Task CloseAsync()
+    {
+        document = null;
+        replacement = null;
+        loadedDocumentId = null;
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task<int> GetCurrentUserIdAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        return int.TryParse(authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0;
+    }
+}

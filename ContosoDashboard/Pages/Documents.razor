@@ -1,0 +1,211 @@
+@page "/documents"
+@using System.Security.Claims
+@attribute [Authorize]
+@inject IDocumentService DocumentService
+@inject IProjectService ProjectService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+
+<PageTitle>Documents - ContosoDashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Documents</h1>
+        <button class="btn btn-primary" @onclick="() => showUpload = true">
+            <i class="bi bi-upload"></i> Upload
+        </button>
+    </div>
+
+    @if (statusMessage != null)
+    {
+        <div class="alert @(statusIsError ? "alert-danger" : "alert-success") alert-dismissible" role="alert">
+            @statusMessage
+            <button type="button" class="btn-close" aria-label="Close" @onclick="() => statusMessage = null"></button>
+        </div>
+    }
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == Tab.Mine ? "active" : "")" role="tab"
+                    aria-selected="@(activeTab == Tab.Mine)" @onclick="() => activeTab = Tab.Mine">
+                My Documents
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(activeTab == Tab.Search ? "active" : "")" role="tab"
+                    aria-selected="@(activeTab == Tab.Search)" @onclick="() => activeTab = Tab.Search">
+                Search
+            </button>
+        </li>
+    </ul>
+
+    @if (activeTab == Tab.Mine)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label" for="filterCategory">Category</label>
+                        <select id="filterCategory" class="form-select" @bind="filterCategory" @bind:after="LoadMyDocumentsAsync">
+                            <option value="">All categories</option>
+                            @foreach (var category in DocumentCategories.All)
+                            {
+                                <option value="@category">@category</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="filterProject">Project</label>
+                        <select id="filterProject" class="form-select" @bind="filterProjectId" @bind:after="LoadMyDocumentsAsync">
+                            <option value="">All projects</option>
+                            @foreach (var project in projects)
+                            {
+                                <option value="@project.ProjectId">@project.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="filterFrom">From</label>
+                        <input id="filterFrom" type="date" class="form-control" @bind="filterFrom" @bind:after="LoadMyDocumentsAsync" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="filterTo">To</label>
+                        <input id="filterTo" type="date" class="form-control" @bind="filterTo" @bind:after="LoadMyDocumentsAsync" />
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-secondary w-100" @onclick="ClearFiltersAsync">Clear filters</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                @if (myDocuments == null)
+                {
+                    <p><em>Loading...</em></p>
+                }
+                else
+                {
+                    <DocumentTable Items="myDocuments"
+                                   EmptyMessage="You haven't uploaded any documents yet."
+                                   SortBy="query.SortBy" Descending="query.Descending" OnSort="SortAsync"
+                                   OnEdit="StartEdit" OnDelete="DeleteAsync" />
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <form class="row g-2 mb-3" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+                    <div class="col">
+                        <label class="visually-hidden" for="searchTerm">Search documents</label>
+                        <input id="searchTerm" class="form-control" maxlength="200"
+                               placeholder="Search by title, description, tag, uploader, or project" @bind="searchTerm" />
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Search</button>
+                    </div>
+                </form>
+
+                @if (searchResults != null)
+                {
+                    <DocumentTable Items="searchResults" ShowUploader="true"
+                                   EmptyMessage="No documents found."
+                                   OnEdit="StartEdit" OnDelete="DeleteAsync" />
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<DocumentUploadModal Show="showUpload" OnClose="() => showUpload = false" OnUploaded="RefreshAsync" />
+<DocumentEditModal Show="editDocumentId.HasValue" DocumentId="editDocumentId"
+                   OnClose="() => editDocumentId = null" OnSaved="RefreshAsync" />
+
+@code {
+    private enum Tab { Mine, Search }
+
+    private Tab activeTab = Tab.Mine;
+    private int currentUserId;
+    private List<Project> projects = new();
+    private List<DocumentListItem>? myDocuments;
+    private List<DocumentListItem>? searchResults;
+    private readonly DocumentQuery query = new();
+    private string filterCategory = string.Empty;
+    private string filterProjectId = string.Empty;
+    private DateTime? filterFrom;
+    private DateTime? filterTo;
+    private string searchTerm = string.Empty;
+    private bool showUpload;
+    private int? editDocumentId;
+    private string? statusMessage;
+    private bool statusIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (int.TryParse(authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+        {
+            currentUserId = userId;
+            projects = await ProjectService.GetUserProjectsAsync(currentUserId);
+            await LoadMyDocumentsAsync();
+        }
+    }
+
+    private async Task LoadMyDocumentsAsync()
+    {
+        query.Category = string.IsNullOrEmpty(filterCategory) ? null : filterCategory;
+        query.ProjectId = int.TryParse(filterProjectId, out var projectId) ? projectId : null;
+        query.FromDate = filterFrom;
+        query.ToDate = filterTo;
+        myDocuments = await DocumentService.GetMyDocumentsAsync(currentUserId, query);
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        filterCategory = string.Empty;
+        filterProjectId = string.Empty;
+        filterFrom = null;
+        filterTo = null;
+        await LoadMyDocumentsAsync();
+    }
+
+    private async Task SortAsync(DocumentSortField field)
+    {
+        query.Descending = query.SortBy == field ? !query.Descending : field == DocumentSortField.UploadedDate;
+        query.SortBy = field;
+        await LoadMyDocumentsAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        searchResults = await DocumentService.SearchAsync(searchTerm, currentUserId);
+    }
+
+    private void StartEdit(DocumentListItem item) => editDocumentId = item.DocumentId;
+
+    private async Task DeleteAsync(DocumentListItem item)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"Permanently delete \"{item.Title}\"? This cannot be undone."))
+        {
+            return;
+        }
+
+        var result = await DocumentService.DeleteAsync(item.DocumentId, currentUserId);
+        statusIsError = !result.Succeeded;
+        statusMessage = result.Succeeded ? $"\"{item.Title}\" was deleted." : result.ErrorMessage;
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        await LoadMyDocumentsAsync();
+        if (searchResults != null && !string.IsNullOrWhiteSpace(searchTerm))
+        {
+            await SearchAsync();
+        }
+    }
+}

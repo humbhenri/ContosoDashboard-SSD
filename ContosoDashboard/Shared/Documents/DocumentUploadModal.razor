@@ -1,0 +1,359 @@
+@using System.Security.Claims
+@using ContosoDashboard.Models
+@using ContosoDashboard.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@inject IDocumentService DocumentService
+@inject IProjectService ProjectService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@if (Show)
+{
+    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="uploadModalTitle"
+         style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadModalTitle">Upload Documents</h5>
+                    <button type="button" class="btn-close" aria-label="Close" disabled="@isUploading" @onclick="CloseAsync"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="documentFiles">Files</label>
+                        <InputFile id="documentFiles" @key="inputKey" class="form-control" multiple OnChange="OnFilesSelected"
+                                   accept="@AcceptAttribute" disabled="@isUploading" />
+                        <div class="form-text">PDF, Word, Excel, PowerPoint, text, JPEG, or PNG. Max 25 MB per file.</div>
+                    </div>
+
+                    <fieldset class="border rounded p-3 mb-3" disabled="@isUploading">
+                        <legend class="float-none w-auto px-2 fs-6">Details for all files</legend>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="sharedCategory">Category <span class="text-danger">*</span></label>
+                                <select id="sharedCategory" class="form-select" @bind="sharedCategory" @bind:after="ApplySharedDetails">
+                                    <option value="">Select a category…</option>
+                                    @foreach (var category in DocumentCategories.All)
+                                    {
+                                        <option value="@category">@category</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="sharedProject">Project</label>
+                                @if (FixedProjectId.HasValue)
+                                {
+                                    <input id="sharedProject" class="form-control" disabled
+                                           value="@(projects.FirstOrDefault(p => p.ProjectId == FixedProjectId)?.Name ?? "This project")" />
+                                }
+                                else
+                                {
+                                    <select id="sharedProject" class="form-select" @bind="selectedProjectId">
+                                        <option value="">None (personal)</option>
+                                        @foreach (var project in projects)
+                                        {
+                                            <option value="@project.ProjectId">@project.Name</option>
+                                        }
+                                    </select>
+                                }
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="sharedTags">Tags</label>
+                                <input id="sharedTags" class="form-control" placeholder="comma, separated" maxlength="500"
+                                       @bind="sharedTags" @bind:after="ApplySharedDetails" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="sharedDescription">Description</label>
+                                <textarea id="sharedDescription" class="form-control" rows="2" maxlength="2000"
+                                          @bind="sharedDescription" @bind:after="ApplySharedDetails"></textarea>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    @if (rows.Count > 0)
+                    {
+                        <h6>Files (@rows.Count)</h6>
+                        @foreach (var row in rows)
+                        {
+                            <div class="card mb-2 @(row.Succeeded ? "border-success" : row.Error != null ? "border-danger" : "")">
+                                <div class="card-body py-2">
+                                    <div class="d-flex justify-content-between small text-muted mb-2">
+                                        <span><i class="bi bi-file-earmark"></i> @row.FileName</span>
+                                        <span>@DocumentTable.FormatSize(row.Size)</span>
+                                    </div>
+                                    <fieldset class="row g-2" disabled="@(isUploading || row.Succeeded)">
+                                        <div class="col-md-4">
+                                            <input class="form-control form-control-sm @(string.IsNullOrWhiteSpace(row.Title) && submitted ? "is-invalid" : "")"
+                                                   placeholder="Title" maxlength="255" aria-label="Title for @row.FileName" @bind="row.Title" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <select class="form-select form-select-sm @(string.IsNullOrEmpty(row.Category) && submitted ? "is-invalid" : "")"
+                                                    aria-label="Category for @row.FileName" @bind="row.Category">
+                                                <option value="">Category…</option>
+                                                @foreach (var category in DocumentCategories.All)
+                                                {
+                                                    <option value="@category">@category</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <input class="form-control form-control-sm" placeholder="Tags" maxlength="500"
+                                                   aria-label="Tags for @row.FileName" @bind="row.Tags" />
+                                        </div>
+                                        <div class="col-12">
+                                            <input class="form-control form-control-sm" placeholder="Description" maxlength="2000"
+                                                   aria-label="Description for @row.FileName" @bind="row.Description" />
+                                        </div>
+                                    </fieldset>
+                                    @if (row.Uploading || row.Succeeded)
+                                    {
+                                        <div class="progress mt-2" style="height: 6px;" role="progressbar" aria-label="Upload progress for @row.FileName"
+                                             aria-valuenow="@row.Progress" aria-valuemin="0" aria-valuemax="100">
+                                            <div class="progress-bar @(row.Succeeded ? "bg-success" : "")" style="width: @(row.Progress)%"></div>
+                                        </div>
+                                    }
+                                    @if (row.Succeeded)
+                                    {
+                                        <div class="text-success small mt-1"><i class="bi bi-check-circle"></i> Uploaded</div>
+                                    }
+                                    @if (row.Error != null)
+                                    {
+                                        <div class="text-danger small mt-1" role="alert"><i class="bi bi-exclamation-circle"></i> @row.Error</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" disabled="@isUploading" @onclick="CloseAsync">
+                        @(rows.Any(r => r.Succeeded) && rows.All(r => r.Succeeded) ? "Done" : "Cancel")
+                    </button>
+                    <button type="button" class="btn btn-primary" disabled="@(isUploading || !rows.Any(r => r.CanUpload))" @onclick="UploadAsync">
+                        @if (isUploading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                        }
+                        Upload
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const int MaxFilesPerUpload = 20;
+
+    [Parameter]
+    public bool Show { get; set; }
+
+    [Parameter]
+    public int? FixedProjectId { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback OnUploaded { get; set; }
+
+    private static readonly string AcceptAttribute = string.Join(",", DocumentCategories.AllowedExtensions.Keys);
+
+    private readonly List<UploadRow> rows = new();
+    private List<Project> projects = new();
+    private Guid inputKey = Guid.NewGuid();
+    private string sharedCategory = string.Empty;
+    private string sharedTags = string.Empty;
+    private string sharedDescription = string.Empty;
+    private string selectedProjectId = string.Empty;
+    private bool isUploading;
+    private bool submitted;
+    private bool wasShown;
+    private int currentUserId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Show && !wasShown)
+        {
+            ResetState();
+            currentUserId = await GetCurrentUserIdAsync();
+            projects = currentUserId > 0 ? await ProjectService.GetUserProjectsAsync(currentUserId) : new List<Project>();
+        }
+        wasShown = Show;
+    }
+
+    private void OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        rows.Clear();
+        submitted = false;
+
+        if (e.FileCount > MaxFilesPerUpload)
+        {
+            rows.Add(new UploadRow { FileName = $"{e.FileCount} files selected", Rejected = true, Error = $"Select up to {MaxFilesPerUpload} files at a time." });
+            return;
+        }
+
+        foreach (var file in e.GetMultipleFiles(MaxFilesPerUpload))
+        {
+            var extension = Path.GetExtension(file.Name);
+            var rejection = file.Size > DocumentCategories.MaxFileSizeBytes
+                ? ContosoDashboard.Services.DocumentService.SizeLimitMessage
+                : !DocumentCategories.AllowedExtensions.ContainsKey(extension)
+                    ? ContosoDashboard.Services.Scanning.ContentTypeScanService.RejectionMessage
+                    : null;
+            rows.Add(new UploadRow
+            {
+                File = file,
+                FileName = file.Name,
+                Size = file.Size,
+                Title = Path.GetFileNameWithoutExtension(file.Name),
+                Category = sharedCategory,
+                Tags = sharedTags,
+                Description = sharedDescription,
+                Rejected = rejection != null,
+                Error = rejection
+            });
+        }
+    }
+
+    private void ApplySharedDetails()
+    {
+        foreach (var row in rows.Where(r => !r.Succeeded))
+        {
+            row.Category = sharedCategory;
+            row.Tags = sharedTags;
+            row.Description = sharedDescription;
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        submitted = true;
+        var pending = rows.Where(r => r.CanUpload).ToList();
+        if (pending.Any(r => string.IsNullOrWhiteSpace(r.Title) || string.IsNullOrEmpty(r.Category)))
+        {
+            return;
+        }
+
+        isUploading = true;
+        var projectId = FixedProjectId ?? (int.TryParse(selectedProjectId, out var id) ? id : null);
+        var anySucceeded = false;
+
+        foreach (var row in pending)
+        {
+            row.Uploading = true;
+            row.Error = null;
+            row.Progress = 0;
+            StateHasChanged();
+
+            try
+            {
+                // Copy into memory first so the browser stream is not reused or disposed mid-upload
+                using var memory = new MemoryStream();
+                await using (var stream = row.File!.OpenReadStream(DocumentCategories.MaxFileSizeBytes))
+                {
+                    var buffer = new byte[81920];
+                    long total = 0;
+                    var lastReported = 0;
+                    int read;
+                    while ((read = await stream.ReadAsync(buffer)) > 0)
+                    {
+                        await memory.WriteAsync(buffer.AsMemory(0, read));
+                        total += read;
+                        var percent = row.Size > 0 ? (int)(total * 90 / row.Size) : 90;
+                        if (percent >= lastReported + 5)
+                        {
+                            row.Progress = percent;
+                            lastReported = percent;
+                            StateHasChanged();
+                        }
+                    }
+                }
+                memory.Position = 0;
+
+                var result = await DocumentService.UploadAsync(new DocumentUploadRequest
+                {
+                    OriginalFileName = row.FileName,
+                    Title = row.Title,
+                    Description = row.Description,
+                    Category = row.Category,
+                    ProjectId = projectId,
+                    Tags = ParseTags(row.Tags)
+                }, memory, currentUserId);
+
+                if (result.Succeeded)
+                {
+                    row.Succeeded = true;
+                    row.Progress = 100;
+                    row.File = null;
+                    anySucceeded = true;
+                }
+                else
+                {
+                    row.Error = result.ErrorMessage;
+                }
+            }
+            catch (IOException)
+            {
+                row.Error = "The file could not be read. Please try again.";
+            }
+            finally
+            {
+                row.Uploading = false;
+                StateHasChanged();
+            }
+        }
+
+        isUploading = false;
+        inputKey = Guid.NewGuid();
+
+        if (anySucceeded)
+        {
+            await OnUploaded.InvokeAsync();
+        }
+    }
+
+    private async Task CloseAsync()
+    {
+        ResetState();
+        await OnClose.InvokeAsync();
+    }
+
+    private void ResetState()
+    {
+        rows.Clear();
+        sharedCategory = string.Empty;
+        sharedTags = string.Empty;
+        sharedDescription = string.Empty;
+        selectedProjectId = string.Empty;
+        submitted = false;
+        isUploading = false;
+        inputKey = Guid.NewGuid();
+    }
+
+    private async Task<int> GetCurrentUserIdAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        return int.TryParse(authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0;
+    }
+
+    public static List<string> ParseTags(string? tags) =>
+        (tags ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    private sealed class UploadRow
+    {
+        public IBrowserFile? File { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Tags { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int Progress { get; set; }
+        public bool Uploading { get; set; }
+        public bool Succeeded { get; set; }
+        public bool Rejected { get; set; }
+        public string? Error { get; set; }
+
+        public bool CanUpload => File != null && !Succeeded && !Rejected;
+    }
+}
